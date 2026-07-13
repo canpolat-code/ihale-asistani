@@ -1,8 +1,11 @@
 [project]
 name = "repl-nix-workspace"
 version = "0.1.0"
-description = "Add your description here"
+description = "İhale Asistanı - Multimodal Semantic ETL Pipeline"
 requires-python = ">=3.13"
 dependencies = [
     "pymupdf>=1.28.0",
+    "pydantic>=2.7.0",
+    "google-genai>=0.1.2",
+    "chromadb>=0.4.24"
 ]
