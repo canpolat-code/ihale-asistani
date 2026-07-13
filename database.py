@@ -1,23 +1,36 @@
 # database.py
-import chromadb  # type: ignore[reportMissingImports]
-from chromadb.config import Settings  # type: ignore[reportMissingImports]
+import os
+from pathlib import Path
+from dotenv import load_dotenv  
+
+import chromadb  # type: ignore
+from chromadb.config import Settings  # type: ignore
 from google import genai  # type: ignore
 from typing import List, Dict, Any
-from schema import BirimFiyat  # type: ignore[reportMissingImports]
+from schema import BirimFiyat  # type: ignore
 
-# Gemini İstemcisi (Ortam değişkeninde GEMINI_API_KEY bulunmalı)
+# Çevresel değişkenleri zorla yükle (API anahtarını bulması için)
+load_dotenv()  
+
+# Gemini İstemcisi
 client = genai.Client()
 
-# ChromaDB Kalıcı İstemcisi (Veriler RAM'de uçmasın diye diske yazıyoruz)
-# .gitignore dosyamıza 'chroma_db/' eklediğimiz için bu klasör GitHub'a gitmeyecek
-db_client = chromadb.PersistentClient(path="./chroma_db")
+# --- PATH BURAYA YAZILIYOR ---
+# Projenin kök dizinini mutlak (absolute) olarak hesapla
+BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = BASE_DIR / "chroma_db"
 
-# Koleksiyon oluşturma (veya varsa çağırma)
-# Kosinüs benzerliği (cosine) kullanarak vektörler arası açıyı ölçeceğiz
+# ChromaDB Kalıcı İstemcisi (Artık mutlak yolu kullanıyor)
+db_client = chromadb.PersistentClient(path=str(DB_PATH))
+# ---------------------------------------------
+
+# Koleksiyon oluşturma
 collection = db_client.get_or_create_collection(
     name="kurum_pozlari",
     metadata={"hnsw:space": "cosine"} 
 )
+
+# ... (Aşağıdaki get_embedding ve insert_pozlar fonksiyonları eskisi gibi kalacak) ...
 
 def get_embedding(text: str) -> List[float]:
     """
@@ -27,7 +40,7 @@ def get_embedding(text: str) -> List[float]:
         model='text-embedding-004',
         contents=text,
     )
-    return response.embeddings[0].values
+    return response.embeddings[0].values  # type: ignore
 
 def insert_pozlar(pozlar: List[BirimFiyat], kurum_adi: str, yil: int):
     """
@@ -97,9 +110,9 @@ def semantik_poz_ara(ihale_is_tanimi: str, kurum_filtresi: str | None = None, to
         for i in range(len(results['metadatas'][0])):
             eslesmeler.append({
                 "poz_no": results['metadatas'][0][i]['poz_no'],
-                "is_tanimi": results['documents'][0][i],
+                "is_tanimi": results['documents'][0][i], # type: ignore
                 "birim": results['metadatas'][0][i]['birim'],
                 "fiyat": results['metadatas'][0][i]['fiyat'],
-                "benzerlik_skoru": 1 - results['distances'][0][i] # Kosinüs mesafesini benzerlik yüzdesine çeviriyoruz
+                "benzerlik_skoru": 1 - results['distances'][0][i] # type: ignore
             })
     return eslesmeler
