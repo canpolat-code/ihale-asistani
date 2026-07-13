@@ -1,0 +1,2 @@
+- [Orval path+query param collision](orval-path-query-collision.md) — combining a path param with a query param on one OpenAPI operation makes Orval emit a colliding TS export.
+- [pdf-parse v2 API + DOM lib for File/Blob zod schemas](pdf-parse-v2-and-file-zod.md) — pdf-parse v2 dropped the v1 default-function API; Orval file-upload bodies need `dom` lib for `File`/`Blob`.

@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: priceLists
+    description: Birim fiyat listeleri (poz no -> birim fiyat kaynakları) yönetimi
+  - name: tenderProjects
+    description: İhale birim fiyat teklif cetvelleri ve otomatik fiyat eşleştirme
 paths:
   /healthz:
     get:
@@ -24,6 +28,469 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /price-lists:
+    get:
+      operationId: listPriceLists
+      tags: [priceLists]
+      summary: Kayıtlı birim fiyat listelerini getir
+      responses:
+        "200":
+          description: Birim fiyat listeleri
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PriceList"
+    post:
+      operationId: createPriceList
+      tags: [priceLists]
+      summary: Yeni birim fiyat listesi kaynağı oluştur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriceListInput"
+      responses:
+        "201":
+          description: Oluşturuldu
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceList"
+        "400":
+          description: Geçersiz istek
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /price-lists/{id}:
+    get:
+      operationId: getPriceList
+      tags: [priceLists]
+      summary: Birim fiyat listesi detayını getir
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Birim fiyat listesi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceList"
+        "404":
+          description: Bulunamadı
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deletePriceList
+      tags: [priceLists]
+      summary: Birim fiyat listesini ve kalemlerini sil
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Silindi
+        "404":
+          description: Bulunamadı
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /price-lists/{id}/upload:
+    post:
+      operationId: uploadPriceListFile
+      tags: [priceLists]
+      summary: Excel veya PDF birim fiyat dosyası yükleyip poz kalemlerini ayrıştır
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/FileUpload"
+      responses:
+        "200":
+          description: Ayrıştırma sonucu
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceListUploadResult"
+        "400":
+          description: Dosya ayrıştırılamadı
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Bulunamadı
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /price-items:
+    get:
+      operationId: listPriceItems
+      tags: [priceLists]
+      summary: Poz kalemlerini getir (isteğe bağlı liste filtresi ve arama ile)
+      parameters:
+        - name: priceListId
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Belirtilirse sadece bu listedeki kalemler döner. Atlanırsa tüm listelerde arama yapılır.
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Poz no veya tanım içinde metin araması.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Poz kalemleri
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PriceItem"
+    post:
+      operationId: createPriceItem
+      tags: [priceLists]
+      summary: Bir listeye manuel poz kalemi ekle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriceItemInput"
+      responses:
+        "201":
+          description: Oluşturuldu
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceItem"
+        "400":
+          description: Geçersiz istek
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /price-items/{id}:
+    patch:
+      operationId: updatePriceItem
+      tags: [priceLists]
+      summary: Poz kalemini güncelle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriceItemUpdate"
+      responses:
+        "200":
+          description: Güncellendi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceItem"
+        "404":
+          description: Bulunamadı
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deletePriceItem
+      tags: [priceLists]
+      summary: Poz kalemini sil
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Silindi
+        "404":
+          description: Bulunamadı
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tender-projects:
+    get:
+      operationId: listTenderProjects
+      tags: [tenderProjects]
+      summary: İhale projelerini getir
+      responses:
+        "200":
+          description: İhale projeleri
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenderProject"
+    post:
+      operationId: createTenderProject
+      tags: [tenderProjects]
+      summary: Yeni ihale projesi oluştur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenderProjectInput"
+      responses:
+        "201":
+          description: Oluşturuldu
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenderProject"
+        "400":
+          description: Geçersiz istek
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tender-projects/{id}:
+    get:
+      operationId: getTenderProject
+      tags: [tenderProjects]
+      summary: İhale projesi detayını getir
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: İhale projesi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenderProject"
+        "404":
+          description: Bulunamadı
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteTenderProject
+      tags: [tenderProjects]
+      summary: İhale projesini sil
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Silindi
+        "404":
+          description: Bulunamadı
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tender-projects/{id}/items:
+    get:
+      operationId: listTenderItems
+      tags: [tenderProjects]
+      summary: İhale projesindeki kalemleri getir
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: İhale kalemleri
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenderItem"
+        "404":
+          description: Bulunamadı
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tender-projects/{id}/upload:
+    post:
+      operationId: uploadTenderFile
+      tags: [tenderProjects]
+      summary: Excel formatındaki birim fiyat teklif cetvelini yükle ve satırları ayrıştır
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/FileUpload"
+      responses:
+        "200":
+          description: Ayrıştırma sonucu
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenderUploadResult"
+        "400":
+          description: Dosya ayrıştırılamadı
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Bulunamadı
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tender-projects/{id}/match:
+    post:
+      operationId: matchTenderProject
+      tags: [tenderProjects]
+      summary: Kalemleri seçilen birim fiyat listeleriyle otomatik eşleştir
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MatchRequest"
+      responses:
+        "200":
+          description: Eşleştirme sonrası kalemler
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenderItem"
+        "404":
+          description: Bulunamadı
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tender-projects/{id}/export:
+    get:
+      operationId: exportTenderProject
+      tags: [tenderProjects]
+      summary: Doldurulmuş teklif cetvelini Excel olarak indir
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Excel dosyası
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Bulunamadı
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tender-items/{id}:
+    patch:
+      operationId: updateTenderItem
+      tags: [tenderProjects]
+      summary: Kalemin birim fiyatını elle düzenle veya belirli bir poz eşleşmesi seç
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenderItemUpdate"
+      responses:
+        "200":
+          description: Güncellendi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenderItem"
+        "404":
+          description: Bulunamadı
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +501,251 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    FileUpload:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+
+    PriceList:
+      type: object
+      required: [id, name, organization, year, itemCount, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        organization:
+          type: ["string", "null"]
+        year:
+          type: ["integer", "null"]
+        itemCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    PriceListInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        organization:
+          type: ["string", "null"]
+        year:
+          type: ["integer", "null"]
+
+    PriceListUploadResult:
+      type: object
+      required: [priceList, added, updated, skipped, warnings]
+      properties:
+        priceList:
+          $ref: "#/components/schemas/PriceList"
+        added:
+          type: integer
+        updated:
+          type: integer
+        skipped:
+          type: integer
+        warnings:
+          type: array
+          items:
+            type: string
+
+    PriceItem:
+      type: object
+      required: [id, priceListId, pozNo, description, unit, unitPrice, createdAt]
+      properties:
+        id:
+          type: integer
+        priceListId:
+          type: integer
+        pozNo:
+          type: string
+        description:
+          type: string
+        unit:
+          type: ["string", "null"]
+        unitPrice:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+
+    PriceItemInput:
+      type: object
+      required: [priceListId, pozNo, description, unitPrice]
+      properties:
+        priceListId:
+          type: integer
+        pozNo:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+        unit:
+          type: ["string", "null"]
+        unitPrice:
+          type: number
+
+    PriceItemUpdate:
+      type: object
+      properties:
+        pozNo:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+        unit:
+          type: ["string", "null"]
+        unitPrice:
+          type: number
+
+    TenderProject:
+      type: object
+      required:
+        [
+          id,
+          name,
+          fileName,
+          itemCount,
+          matchedCount,
+          fuzzyCount,
+          unmatchedCount,
+          totalAmount,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        fileName:
+          type: ["string", "null"]
+        itemCount:
+          type: integer
+        matchedCount:
+          type: integer
+        fuzzyCount:
+          type: integer
+        unmatchedCount:
+          type: integer
+        totalAmount:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TenderProjectInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+
+    TenderUploadResult:
+      type: object
+      required: [project, items, warnings]
+      properties:
+        project:
+          $ref: "#/components/schemas/TenderProject"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TenderItem"
+        warnings:
+          type: array
+          items:
+            type: string
+
+    TenderItem:
+      type: object
+      required:
+        [
+          id,
+          tenderProjectId,
+          rowOrder,
+          pozNo,
+          description,
+          unit,
+          quantity,
+          unitPrice,
+          totalPrice,
+          matchStatus,
+          matchScore,
+          matchedPriceItemId,
+          matchedPozNo,
+          matchedDescription,
+          matchedSourceName,
+          createdAt,
+        ]
+      properties:
+        id:
+          type: integer
+        tenderProjectId:
+          type: integer
+        rowOrder:
+          type: integer
+        pozNo:
+          type: string
+        description:
+          type: string
+        unit:
+          type: ["string", "null"]
+        quantity:
+          type: number
+        unitPrice:
+          type: ["number", "null"]
+        totalPrice:
+          type: ["number", "null"]
+        matchStatus:
+          type: string
+          enum: [matched, fuzzy, unmatched, manual]
+        matchScore:
+          type: ["number", "null"]
+        matchedPriceItemId:
+          type: ["integer", "null"]
+        matchedPozNo:
+          type: ["string", "null"]
+        matchedDescription:
+          type: ["string", "null"]
+        matchedSourceName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    TenderItemUpdate:
+      type: object
+      properties:
+        unitPrice:
+          type: ["number", "null"]
+        matchedPriceItemId:
+          type: ["integer", "null"]
+
+    MatchRequest:
+      type: object
+      properties:
+        priceListIds:
+          type: ["array", "null"]
+          items:
+            type: integer
+          description: Eşleştirme için kullanılacak liste id'leri. Boş/atlanırsa tüm listeler kullanılır.

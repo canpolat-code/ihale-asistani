@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "İhale Birim Fiyat Asistanı"
+version = "1.0.0"
+id = "artifacts/tender-pricer"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22825
+
+[services.development]
+run = "pnpm --filter @workspace/tender-pricer run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/tender-pricer", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/tender-pricer/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22825"
+BASE_PATH = "/"

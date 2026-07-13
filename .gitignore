@@ -1,49 +1,64 @@
-# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+# ==========================================
+# 1. GÜVENLİK VE ORTAM DEĞİŞKENLERİ (SECRETS)
+# ==========================================
+# API anahtarları (Gemini vb.) ve lokal konfigürasyonlar asla repoya gitmemelidir.
+.env
+.env.*
+secrets.toml
+*.pem
 
-# compiled output
-dist
-tmp
-out-tsc
-*.tsbuildinfo
-.expo
-.expo-shared
+# ==========================================
+# 2. PYTHON EKOSİSTEMİ VE DERLEME (COMPILATION)
+# ==========================================
+# Derlenmiş bytecode'lar ve sanal ortamlar (virtual environments) yoksayılır.
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.uv/
 
-# dependencies
-node_modules
+# ==========================================
+# 3. TYPESCRIPT / NODE.JS EKOSİSTEMİ
+# ==========================================
+# pnpm ve npm bağımlılıkları yoksayılır. (package.json ve lock dosyaları kalır)
+node_modules/
+dist/
+build/
+.npm/
+.pnpm-store/
+.tsbuildinfo
 
-# IDEs and editors
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
+# ==========================================
+# 4. VERİ BORU HATTI (ETL PIPELINE) MEDYALARI
+# ==========================================
+# Kurum fiyat listeleri gibi ham PDF'ler repoda değil, lokalde veya blob storage'da tutulur.
+attached_assets/
+*.pdf
+*.csv
+*.xlsx
+*.xls
 
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
+# ==========================================
+# 5. VERİTABANI VE VEKTÖR UZAYI (STATEFUL DATA)
+# ==========================================
+# İşlenmiş JSON verileri, lokal veritabanları ve semantik arama endeksleri yoksayılır.
+*.db
+*.sqlite
+*.sqlite3
+*.parquet
+chroma_db/
+faiss_index/
 
-# misc
-/.sass-cache
-/connect.lock
-/coverage
-/libpeerconnection.log
-npm-debug.log
-yarn-error.log
-testem.log
-/typings
-
-# System Files
+# ==========================================
+# 6. PLATFORM VE IDE KONFİGÜRASYONLARI
+# ==========================================
+# Replit, VS Code veya işletim sistemi spesifik metadata dosyaları temizlenir.
+.replit
+.upm
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db
-
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
-
-# Replit
-.cache/
-.local/

@@ -33,6 +33,11 @@ async function buildAll() {
       "better-sqlite3",
       "sqlite3",
       "canvas",
+      "@napi-rs/canvas",
+      // pdf-parse (via pdfjs-dist) resolves its worker script as a sibling
+      // module file at runtime; bundling breaks that resolution.
+      "pdf-parse",
+      "pdfjs-dist",
       "bcrypt",
       "argon2",
       "fsevents",
