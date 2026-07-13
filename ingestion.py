@@ -1,118 +1,94 @@
 # ingestion.py
-import os
-import time
-import fitz  # PyMuPDF # type: ignore
-from pathlib import Path
-from dotenv import load_dotenv # type: ignore
-from google import genai # type: ignore
-from google.genai import types # type: ignore
-from schema import FiyatListesi # type: ignore
+import pandas as pd
+import re
+from schema import BirimFiyat
 from database import insert_pozlar
 
-# Çevresel değişkenleri yükle
-load_dotenv()
-client = genai.Client()
+def metin_normallestir(metin) -> str:
+    if pd.isna(metin): return ""
+    metin = str(metin).lower().strip()
+    metin = metin.replace('ı', 'i').replace('ğ', 'g').replace('ü', 'u').replace('ş', 's').replace('ö', 'o').replace('ç', 'c')
+    return re.sub(r'[^a-z0-9]', '', metin)
 
-def process_chunk_with_backoff(contents, schema, max_retries=5):
-    """
-    API İstek Sınırlarını (Rate Limits) aşmak için Üstel Geri Çekilme uygular.
-    Hata durumunda bekleme süresini katlayarak artırır.
-    """
-    base_wait_time = 10  # Başlangıç bekleme süresi (saniye)
-    
-    for attempt in range(max_retries):
-        try:
-            response = client.models.generate_content(
-                model='gemini-2.5-pro',
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=schema,
-                    temperature=0.1 # Halüsinasyonu minimize etmek için düşük sıcaklık
-                ),
-            )
-            return response.parsed
-            
-        except Exception as e:
-            hata_mesaji = str(e).lower()
-            # 429 (Too Many Requests) veya Kota dolumu hatalarını yakala
-            if "429" in hata_mesaji or "quota" in hata_mesaji or "exhausted" in hata_mesaji:
-                wait_time = base_wait_time * (2 ** attempt)
-                print(f"  [!] API Sınırı Aşıldı. Model soğutuluyor... {wait_time} sn beklenecek. (Deneme {attempt+1}/{max_retries})")
-                time.sleep(wait_time)
-            else:
-                print(f"  [X] Beklenmeyen kritik hata: {e}")
-                return None
-                
-    print("  [X] Maksimum deneme sayısına ulaşıldı. Bu sayfa grubu atlanıyor.")
+def akilli_sutun_bul(df: pd.DataFrame, anahtar_kelimeler: list) -> str | None:
+    for col in df.columns:
+        norm_col = metin_normallestir(col)
+        for kw in anahtar_kelimeler:
+            if kw in norm_col:
+                return col
     return None
 
-def ingest_pdf(pdf_filename: str, kurum_adi: str, yil: int, chunk_size: int = 5):
-    """
-    PDF'i parçalara böler, görsel olarak analiz eder ve Vektör Veritabanına yazar.
-    """
-    # Mutlak yol hesaplaması
-    BASE_DIR = Path(__file__).resolve().parent
-    pdf_path = BASE_DIR / "attached_assets" / pdf_filename
+def ingest_heterojen_excel(excel_yolu: str, kurum_adi: str, yil: int, batch_size: int = 100):
+    print(f"\n>>> [ETL BAŞLATILDI] {kurum_adi} ({yil}) - Heterojen Şema Analizi: {excel_yolu} <<<")
+    print("="*80)
     
-    if not pdf_path.exists():
-        print(f"Hata: Sistem '{pdf_path}' konumunda dosyayı bulamadı.")
+    try:
+        xls_sayfalar = pd.read_excel(excel_yolu, sheet_name=None)
+    except Exception as e:
+        print(f"[KRİTİK HATA] Dosya okuma matrisi çöktü: {e}")
         return
 
-    print(f"\n{'='*50}")
-    print(f">>> {kurum_adi} ({yil}) Veri Çıkarımı Başlıyor: {pdf_filename} <<<")
-    print(f"{'='*50}\n")
-    
-    doc = fitz.open(pdf_path)
-    total_pages = len(doc)
-    toplam_cikarilan_poz = 0
+    toplam_basarili_kayit = 0
 
-    # Sayfaları gruplar (chunks) halinde işle
-    for i in range(0, total_pages, chunk_size):
-        chunk_pages = range(i, min(i + chunk_size, total_pages))
-        print(f"\n[Sayfalar: {chunk_pages[0] + 1} - {chunk_pages[-1] + 1} / {total_pages}] analize alınıyor...")
-        
-        contents = []
-        for page_num in chunk_pages:
-            page = doc[page_num]
-            # Hız ve kalite optimizasyonu için 2.0 (yaklaşık 150 DPI) çözünürlük
-            pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))
-            contents.append(
-                types.Part.from_bytes(data=pix.tobytes("png"), mime_type="image/png")
-            )
-        
-        prompt_text = (
-            f"Bu görseller {kurum_adi} kurumunun {yil} yılına ait resmi birim fiyat listesi sayfalarıdır. "
-            "Tablolardaki tüm poz numaralarını, iş tanımlarını, ölçü birimlerini ve birim fiyatlarını eksiksiz çıkar. "
-            "Eğer tablo satırları bir sayfadan diğerine taşıyorsa, veriyi anlamsal olarak birleştir. "
-            "Sadece verilen şemaya tam uyumlu, geçerli bir JSON döndür."
-        )
-        contents.append(prompt_text)
-
-        # Hata tolere eden (fault-tolerant) yapay zeka çağrısı
-        chunk_sonucu = process_chunk_with_backoff(contents, FiyatListesi)
-        
-        if chunk_sonucu and hasattr(chunk_sonucu, 'pozlar') and chunk_sonucu.pozlar: # type: ignore
-            cikarilan_adet = len(chunk_sonucu.pozlar) # type: ignore
-            toplam_cikarilan_poz += cikarilan_adet
-            print(f"  -> Başarı: {cikarilan_adet} adet yapılandırılmış poz saptandı.")
+    for sayfa_adi, df in xls_sayfalar.items():
+        df = df.dropna(how='all').dropna(axis=1, how='all')
+        if df.empty: continue
             
-            # RAM'in şişmesini önlemek için çıkarılan veriyi anında ChromaDB'ye gömüyoruz
-            insert_pozlar(chunk_sonucu.pozlar, kurum_adi, yil) # type: ignore
-        else:
-            print("  -> Uyarı: Bu gruptan geçerli bir poz çıkarılamadı veya yapı boş döndü.")
-        
-        # Ücretsiz API (Free Tier) kotasını korumak için zorunlu uyku döngüsü
-        if chunk_pages[-1] + 1 < total_pages:
-            bekleme = 15
-            print(f"  [Sistem Koruması] API yığılmasını önlemek için {bekleme} saniye bekleniyor...")
-            time.sleep(bekleme)
+        # Sütunları Heuristic olarak haritalandır
+        col_poz = akilli_sutun_bul(df, ['pozno', 'poznumarasi', 'pozgrubu'])
+        col_tanim = akilli_sutun_bul(df, ['tanim', 'imalat', 'cinsi', 'aciklama', 'gerecler'])
+        col_birim = akilli_sutun_bul(df, ['birim', 'olcu'])
+        col_fiyat = akilli_sutun_bul(df, ['montajli', 'rayic', 'brfiyat', 'fiyat', 'tutar'])
 
-    print(f"\n=== MİMARİ İŞLEM TAMAMLANDI ===")
-    print(f"Kurum: {kurum_adi}")
-    print(f"Veritabanına İşlenen Toplam Poz: {toplam_cikarilan_poz}")
-    print(f"{'='*50}")
+        if not all([col_poz, col_tanim, col_birim, col_fiyat]):
+            continue
+            
+        print(f"\n[*] İşlenen Sekme: '{sayfa_adi}' | Matris Bağlantısı Kuruldu.")
+        poz_havuzu = []
+        
+        for index, row in df.iterrows():
+            try:
+                raw_poz = str(row[col_poz]).strip() #type: ignore
+                raw_tanim = str(row[col_tanim]).strip() #type: ignore
+                raw_birim = str(row[col_birim]).strip() #type: ignore
+                raw_fiyat = str(row[col_fiyat]).strip() #type: ignore
+
+                if raw_poz.lower() in ['nan', ''] or raw_tanim.lower() in ['nan', ''] or raw_fiyat.lower() in ['nan', '', '-']:
+                    continue
+
+                # Sayısal matris standardizasyonu (Para birimi ve noktalama temizliği)
+                temiz_fiyat = re.sub(r'[^0-9,.]', '', raw_fiyat)
+                if ',' in temiz_fiyat and '.' in temiz_fiyat:
+                    temiz_fiyat = temiz_fiyat.replace('.', '').replace(',', '.')
+                elif ',' in temiz_fiyat:
+                    temiz_fiyat = temiz_fiyat.replace(',', '.')
+                
+                fiyat_float = float(temiz_fiyat)
+
+                poz_obj = BirimFiyat(
+                    poz_no=raw_poz,
+                    is_tanimi=raw_tanim,
+                    birim=raw_birim if raw_birim != "nan" else "Adet",
+                    fiyat=fiyat_float
+                )
+                poz_havuzu.append(poz_obj)
+
+            except Exception:
+                continue
+
+            if len(poz_havuzu) >= batch_size:
+                print(f"  [Vektör İşleme] {len(poz_havuzu)} adet veri uzaysal belleğe kodlanıyor...")
+                insert_pozlar(poz_havuzu, kurum_adi, yil)
+                toplam_basarili_kayit += len(poz_havuzu)
+                poz_havuzu = []
+                
+        if poz_havuzu:
+            insert_pozlar(poz_havuzu, kurum_adi, yil)
+            toplam_basarili_kayit += len(poz_havuzu)
+
+    print("="*80)
+    print(f">>> İŞLEM TAMAMLANDI: {kurum_adi} için {toplam_basarili_kayit} poz kalıcı hafızaya mühürlendi. <<<")
 
 if __name__ == "__main__":
-    # Sistemin asıl testi: PTT 2026 belgesini veritabanına aktarma emri
-    ingest_pdf("PTT 2026.pdf", "PTT", 2026, chunk_size=2)
+    # Sırayla tüm kurumsal kütüphaneyi hatasız yutmaya hazırız
+    ingest_heterojen_excel("PTT 2026.xlsx", "PTT", 2026)
