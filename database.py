@@ -1,9 +1,9 @@
 # database.py
-import chromadb
-from chromadb.config import Settings
-from google import genai
+import chromadb  # type: ignore[reportMissingImports]
+from chromadb.config import Settings  # type: ignore[reportMissingImports]
+from google import genai  # type: ignore
 from typing import List, Dict, Any
-from schema import BirimFiyat
+from schema import BirimFiyat  # type: ignore[reportMissingImports]
 
 # Gemini İstemcisi (Ortam değişkeninde GEMINI_API_KEY bulunmalı)
 client = genai.Client()
@@ -72,7 +72,7 @@ def insert_pozlar(pozlar: List[BirimFiyat], kurum_adi: str, yil: int):
     )
     print(f"Başarıyla {len(pozlar)} adet poz veritabanına kaydedildi.")
 
-def semantik_poz_ara(ihale_is_tanimi: str, kurum_filtresi: str = None, top_k: int = 3) -> List[Dict[str, Any]]:
+def semantik_poz_ara(ihale_is_tanimi: str, kurum_filtresi: str | None = None, top_k: int = 3) -> List[Dict[str, Any]]:
     """
     İhale dokümanından okunan bozuk/farklı bir iş tanımını veritabanında arar
     ve anlamsal olarak en yakın 'top_k' adet pozu döndürür.
@@ -81,14 +81,15 @@ def semantik_poz_ara(ihale_is_tanimi: str, kurum_filtresi: str = None, top_k: in
     query_embedding = get_embedding(ihale_is_tanimi)
     
     # 2. Metadata filtresi ayarla (İsteğe bağlı sadece belirli bir kurumda aramak için)
-    where_clause = {"kurum_adi": kurum_filtresi} if kurum_filtresi else None
+    query_kwargs = {
+        "query_embeddings": [query_embedding],
+        "n_results": top_k
+    }
+    if kurum_filtresi:
+        query_kwargs["where"] = {"kurum_adi": kurum_filtresi}
 
     # 3. Vektör uzayında en yakın komşuları (K-Nearest Neighbors) bul
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=top_k,
-        where=where_clause
-    )
+    results = collection.query(**query_kwargs)
     
     # Sonuçları daha okunaklı bir formata çevir
     eslesmeler = []
