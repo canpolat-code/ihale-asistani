@@ -90,5 +90,11 @@ def ingest_heterojen_excel(excel_yolu: str, kurum_adi: str, yil: int, batch_size
     print(f">>> İŞLEM TAMAMLANDI: {kurum_adi} için {toplam_basarili_kayit} poz kalıcı hafızaya mühürlendi. <<<")
 
 if __name__ == "__main__":
-    # Sırayla tüm kurumsal kütüphaneyi hatasız yutmaya hazırız
+    # 1. PTT Verilerinin İşlenmesi
     ingest_heterojen_excel("PTT 2026.xlsx", "PTT", 2026)
+    
+    # 2. Çevre ve Şehircilik Bakanlığı Verilerinin İşlenmesi
+    ingest_heterojen_excel("CSB 2026 BİRİM FİYATLAR.xlsx", "CSB", 2026)
+    
+    # 3. Kültür ve Turizm Bakanlığı Verilerinin İşlenmesi
+    ingest_heterojen_excel("KTB 2026.xlsx", "KTB", 2026)
