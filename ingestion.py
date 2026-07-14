@@ -77,7 +77,6 @@ def ingest_heterojen_excel(excel_yolu: str, kurum_adi: str, yil: int, batch_size
                 continue
 
             if len(poz_havuzu) >= batch_size:
-                print(f"  [Vektör İşleme] {len(poz_havuzu)} adet veri uzaysal belleğe kodlanıyor...")
                 insert_pozlar(poz_havuzu, kurum_adi, yil)
                 toplam_basarili_kayit += len(poz_havuzu)
                 poz_havuzu = []
