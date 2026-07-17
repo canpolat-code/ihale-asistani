@@ -91,7 +91,7 @@ def standart_excel_ingest_pipeline(excel_yolu: str, kurum_adi: str, yil: int, ba
             raw_birim = str(row['BIRIMI']).strip()
             raw_fiyat = row[fiyat_col]
 
-            # Veri temizleme süzgeci (Veri bütünlüğü koruması)
+            # Veri bütünlüğü koruması
             if raw_poz.lower() in ['nan', ''] or raw_tanim.lower() in ['nan', ''] or raw_birim.lower() in ['nan', '']:
                 continue
 
@@ -100,7 +100,7 @@ def standart_excel_ingest_pipeline(excel_yolu: str, kurum_adi: str, yil: int, ba
                 continue
 
             try:
-                # Veri Kontratı Doğrulaması (Type-Safety)
+                # Type-Safety
                 poz_obj = BirimFiyat(
                     poz_no=raw_poz,
                     is_tanimi=raw_tanim,
@@ -112,7 +112,7 @@ def standart_excel_ingest_pipeline(excel_yolu: str, kurum_adi: str, yil: int, ba
             except Exception:
                 continue
 
-            # Batch Processing: Hafıza taşmasını önlemek için partiler halinde DB'ye mühürleme
+            # Batch Processing
             if len(poz_havuzu) >= batch_size:
                 insert_pozlar(poz_havuzu, kurum_adi, yil)
                 toplam_kaydedilen_poz += len(poz_havuzu)
@@ -124,10 +124,10 @@ def standart_excel_ingest_pipeline(excel_yolu: str, kurum_adi: str, yil: int, ba
             toplam_kaydedilen_poz += len(poz_havuzu)
 
     print("-" * 80)
-    print(f">>> MİMARİ BAŞARI: {kurum_adi} için toplam {toplam_kaydedilen_poz} adet veri mühürlendi. <<<")
+    print(f">>> Pozlar: {kurum_adi} için toplam {toplam_kaydedilen_poz} adet veri mühürlendi. <<<")
 
 if __name__ == "__main__":
-    # Standardize edilmiş kurumsal veri kütüphanesi yükleme döngüsü
+    # kurumsal veri kütüphanesi yükleme döngüsü
     standart_excel_ingest_pipeline("PTT 2026.xlsx", "PTT", 2026)
     standart_excel_ingest_pipeline("CSB 2026 BİRİM FİYATLAR.xlsx", "CSB", 2026)
     standart_excel_ingest_pipeline("KTB 2026.xlsx", "KTB", 2026)

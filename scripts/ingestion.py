@@ -1,6 +1,6 @@
 # scripts/ingestion.py
-import fitz  # PyMuPDF
-import math
+import fitz  
+from typing import Any
 from google import genai
 from google.genai import types
 from schema import FiyatListesi  # Bir önceki adımda oluşturduğumuz şema
@@ -34,7 +34,7 @@ def extract_pdf_in_chunks(pdf_path: str, kurum_adi: str, yil: int, chunk_size: i
                 types.Part.from_bytes(data=img_bytes, mime_type="image/png")
             )
         
-        # Prompt'umuzu ekleyelim
+        # Prompt ekle
         prompt_text = (
             f"Bu görseller {kurum_adi} kurumunun {yil} yılına ait birim fiyat listesi sayfalarıdır. "
             "Tablolardaki tüm poz numaralarını, iş tanımlarını, birimlerini ve fiyatlarını eksiksiz çıkar. "
@@ -43,28 +43,28 @@ def extract_pdf_in_chunks(pdf_path: str, kurum_adi: str, yil: int, chunk_size: i
         )
         contents.append(prompt_text)
 
-        # Gemini Pro'ya yapılandırılmış çıktı zorlaması (Structured Output) ile istek at
+        # Gemini Pro'ya yapılandırılmış Structured Output ile istek at
         response = client.models.generate_content(
             model='gemini-2.5-pro',
             contents=contents,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=FiyatListesi,
-                temperature=0.1 # Halüsinasyonu engellemek için düşük sıcaklık
+                temperature=0.1 # düşük sıcaklık
             ),
         )
         
         # Dönen JSON verisini doğrudan Pydantic objesi olarak alabiliriz
-        # (Gerçek dünyada burada hata yönetimi/try-catch blokları olmalıdır)
+        # burada hata yönetimi/try-catch blokları olmalıdır)
         chunk_sonucu = response.parsed
         if chunk_sonucu and hasattr(chunk_sonucu, 'pozlar'):
-            tum_pozlar.extend(chunk_sonucu.pozlar)
-            print(f"Bu gruptan {len(chunk_sonucu.pozlar)} adet poz çıkarıldı.")
+            tum_pozlar.extend(chunk_sonucu.pozlar) # type: ignore
+            print(f"Bu gruptan {len(chunk_sonucu.pozlar)} adet poz çıkarıldı.") # type: ignore
 
     print(f"Toplam çıkarılan poz sayısı: {len(tum_pozlar)}")
     return tum_pozlar
 
 if __name__ == "__main__":
     # Test amaçlı kullanım
-    # pozlar = extract_pdf_in_chunks("attached_assets/ÇŞB 2026 BİRİM FİYATLAR.pdf", "ÇŞB", 2026)
+    # pozlar = extract_pdf_in_chunks("attached_assets/CSB 2026 BİRİM FİYATLAR.pdf", "CSB", 2026)
     pass
